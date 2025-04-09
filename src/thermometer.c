@@ -40,7 +40,6 @@ int thermometer_release(struct inode *inode, struct file *filp)
 ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
                          loff_t *f_pos)
 {
-    ssize_t bytes_read = 0;
     size_t str_len = 0;
     size_t copy_len = 0;
     ThermometerDevice *device;
@@ -60,9 +59,10 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     copy_len = count <= (str_len - *f_pos) ? count : (str_len - *f_pos);
 
     copy_len -= copy_to_user(buf, device->temperature + *f_pos, copy_len);
+    *f_pos += copy_len;
 
 close_function:
-    return bytes_read;
+    return copy_len;
 }
 
 struct file_operations thermometer_fops = {
