@@ -20,7 +20,7 @@ MODULE_AUTHOR("Sean Sweet");
 MODULE_LICENSE("Dual BSD/GPL");
 #endif
 
-ThermometerDevice thermometer_device = {.temperature = "70"};
+ThermometerDevice thermometer_device = {.temperature = "70\n"};
 
 int thermometer_open(struct inode *inode, struct file *filp)
 {

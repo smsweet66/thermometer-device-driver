@@ -3,7 +3,7 @@
 
 typedef struct ThermometerDevice
 {
-    const char temperature[3];
+    const char temperature[4];
     struct cdev cdev;
 } ThermometerDevice;
 
