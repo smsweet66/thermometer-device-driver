@@ -92,7 +92,7 @@ int thermometer_init_module(void)
     dev_t dev = 0;
     int result;
     result = alloc_chrdev_region(&dev, thermometer_minor, 1,
-                                 "thermometer_char");
+                                 "thermometer");
     thermometer_major = MAJOR(dev);
     if (result < 0)
     {
