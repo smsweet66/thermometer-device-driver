@@ -3,7 +3,8 @@
 
 typedef struct ThermometerDevice
 {
-    const char temperature[4];
+    char *temperature;
+    struct mutex *device_mutex;
     struct cdev cdev;
 } ThermometerDevice;
 

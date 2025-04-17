@@ -6,14 +6,19 @@
 
 #include "thermometer.h"
 
-#include <linux/module.h>
+#include <linux/delay.h>
+#include <linux/fs.h> // file_operations
+#include <linux/gpio.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/types.h>
-#include <linux/fs.h> // file_operations
 
 int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
+
+#define INPUT_PIN 18U
+#define OUTPUT_PIN 23U
 
 #ifdef __KERNEL__
 MODULE_AUTHOR("Sean Sweet");
@@ -25,11 +30,34 @@ ThermometerDevice thermometer_device = {.temperature = "70\n"};
 int thermometer_open(struct inode *inode, struct file *filp)
 {
     ThermometerDevice *device;
+    int return_val = 0;
 
     device = container_of(inode->i_cdev, ThermometerDevice, cdev);
     filp->private_data = device;
 
-    return 0;
+    if (mutex_lock_interruptible(device->device_mutex) != 0)
+    {
+        return_val = ERESTARTSYS;
+        goto device_mutex_lock_failed;
+    }
+
+    gpio_set_value(OUTPUT_PIN, 0);
+
+    msleep(5);
+
+    u64 start = ktime_get_mono_fast_ns();
+    gpio_set_value(OUTPUT_PIN, 1);
+    while (gpio_get_value(INPUT_PIN) != 1)
+        ;
+
+    u64 end = ktime_get_mono_fast_ns();
+
+    sprintf(device->temperature, "%llu", end - start);
+
+    mutex_unlock(device->device_mutex);
+
+device_mutex_lock_failed:
+    return return_val;
 }
 
 int thermometer_release(struct inode *inode, struct file *filp)
@@ -43,13 +71,21 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     size_t str_len = 0;
     size_t copy_len = 0;
     ThermometerDevice *device;
+    ssize_t return_val;
 
     if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
     {
-        return -EPERM;
+        return_val = -EPERM;
+        goto insufficient_permissions;
     }
 
     device = (ThermometerDevice *)filp->private_data;
+    if (mutex_lock_interruptible(device->device_mutex) != 0)
+    {
+        return_val = -ERESTARTSYS;
+        goto device_mutex_lock_failed;
+    }
+
     str_len = strnlen(device->temperature, sizeof(device->temperature));
     if (*f_pos >= str_len)
     {
@@ -62,6 +98,9 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     *f_pos += copy_len;
 
 close_function:
+    mutex_unlock(device->device_mutex);
+device_mutex_lock_failed:
+insufficient_permissions:
     return copy_len;
 }
 
@@ -100,6 +139,46 @@ int thermometer_init_module(void)
         goto alloc_chrdev_failed;
     }
 
+    thermometer_device.temperature = kmalloc_array(30, sizeof(char), GFP_KERNEL);
+    if (thermometer_device.temperature == NULL)
+    {
+        result = ENOMEM;
+        goto tempurature_malloc_failed;
+    }
+
+    thermometer_device.device_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
+    if (thermometer_device.device_mutex == NULL)
+    {
+        result = ENOMEM;
+        goto device_mutex_malloc_failed;
+    }
+
+    mutex_init(thermometer_device.device_mutex);
+
+    if (gpio_request(OUTPUT_PIN, "OUTPUT_PIN") != 0)
+    {
+        result = ERESTARTSYS;
+        goto request_output_pin_failed;
+    }
+
+    if (gpio_request(INPUT_PIN, "INPUT_PIN") != 0)
+    {
+        result = ERESTARTSYS;
+        goto request_input_pin_failed;
+    }
+
+    if (gpio_direction_output(OUTPUT_PIN, 0) != 0)
+    {
+        result = ERESTARTSYS;
+        goto set_gpio_direction_failed;
+    }
+
+    if (gpio_direction_input(INPUT_PIN) != 0)
+    {
+        result = ERESTARTSYS;
+        goto set_gpio_direction_failed;
+    }
+
     result = thermometer_setup_cdev(&thermometer_device);
 
     if (result)
@@ -108,9 +187,18 @@ int thermometer_init_module(void)
     }
 
     return 0;
-
-alloc_chrdev_failed:
 setup_cdev_failed:
+set_gpio_direction_failed:
+    gpio_free(INPUT_PIN);
+request_input_pin_failed:
+    gpio_free(OUTPUT_PIN);
+request_output_pin_failed:
+    mutex_destroy(thermometer_device.device_mutex);
+    kfree(thermometer_device.device_mutex);
+device_mutex_malloc_failed:
+    kfree(thermometer_device.temperature);
+tempurature_malloc_failed:
+alloc_chrdev_failed:
 
     return result;
 }
@@ -122,6 +210,12 @@ void thermometer_cleanup_module(void)
     cdev_del(&thermometer_device.cdev);
 
     unregister_chrdev_region(devno, 1);
+
+    gpio_free(INPUT_PIN);
+    gpio_free(OUTPUT_PIN);
+    mutex_destroy(thermometer_device.device_mutex);
+    kfree(thermometer_device.device_mutex);
+    kfree(thermometer_device.temperature);
 }
 
 module_init(thermometer_init_module);
