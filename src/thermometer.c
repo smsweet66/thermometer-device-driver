@@ -32,11 +32,14 @@ int thermometer_open(struct inode *inode, struct file *filp)
     ThermometerDevice *device;
     int return_val = 0;
 
+    printk(KERN_INFO "Opened\n");
+
     device = container_of(inode->i_cdev, ThermometerDevice, cdev);
     filp->private_data = device;
 
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
+        printk(KERN_WARNING "OPEN: Failed to lock mutex\n");
         return_val = ERESTARTSYS;
         goto device_mutex_lock_failed;
     }
@@ -62,6 +65,8 @@ device_mutex_lock_failed:
 
 int thermometer_release(struct inode *inode, struct file *filp)
 {
+    printk(KERN_INFO "Closing\n");
+
     return 0;
 }
 
@@ -73,8 +78,11 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     ThermometerDevice *device;
     ssize_t return_val;
 
+    printk(KERN_INFO "Reading\n");
+
     if ((filp->f_flags & O_ACCMODE) == O_WRONLY)
     {
+        printk(KERN_WARNING "READ: Missing read permissions\n");
         return_val = -EPERM;
         goto insufficient_permissions;
     }
@@ -82,6 +90,7 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     device = (ThermometerDevice *)filp->private_data;
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
+        printk(KERN_WARNING "READ: Failed to lock mutex\n");
         return_val = -ERESTARTSYS;
         goto device_mutex_lock_failed;
     }
@@ -89,6 +98,7 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
     str_len = strnlen(device->temperature, sizeof(device->temperature));
     if (*f_pos >= str_len)
     {
+        printk(KERN_WARNING "READ: Can't read past EOF\n");
         goto close_function;
     }
 
@@ -114,6 +124,8 @@ struct file_operations thermometer_fops = {
 static int thermometer_setup_cdev(ThermometerDevice *dev)
 {
     int err, devno = MKDEV(thermometer_major, thermometer_minor);
+
+    printk(KERN_WARNING "Setting up CDEV\n");
 
     cdev_init(&dev->cdev, &thermometer_fops);
     dev->cdev.owner = THIS_MODULE;
@@ -142,6 +154,7 @@ int thermometer_init_module(void)
     thermometer_device.temperature = kmalloc_array(30, sizeof(char), GFP_KERNEL);
     if (thermometer_device.temperature == NULL)
     {
+        printk(KERN_WARNING "INIT: Tempurature buffer malloc failed\n");
         result = ENOMEM;
         goto tempurature_malloc_failed;
     }
@@ -149,46 +162,37 @@ int thermometer_init_module(void)
     thermometer_device.device_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
     if (thermometer_device.device_mutex == NULL)
     {
+        printk(KERN_WARNING "INIT: Device mutex malloc failed\n");
         result = ENOMEM;
         goto device_mutex_malloc_failed;
     }
 
     mutex_init(thermometer_device.device_mutex);
 
-    if (gpio_request(OUTPUT_PIN, "OUTPUT_PIN") != 0)
+    if (gpio_request_one(OUTPUT_PIN, GPIOF_INIT_LOW, "OUTPUT_PIN") != 0)
     {
+        printk(KERN_WARNING "INIT: Output pin config failed\n");
         result = ERESTARTSYS;
         goto request_output_pin_failed;
     }
 
-    if (gpio_request(INPUT_PIN, "INPUT_PIN") != 0)
+    if (gpio_request_one(INPUT_PIN, GPIOF_DIR_IN, "INPUT_PIN") != 0)
     {
+        printk(KERN_WARNING "INIT: Input pin config failed\n");
         result = ERESTARTSYS;
         goto request_input_pin_failed;
-    }
-
-    if (gpio_direction_output(OUTPUT_PIN, 0) != 0)
-    {
-        result = ERESTARTSYS;
-        goto set_gpio_direction_failed;
-    }
-
-    if (gpio_direction_input(INPUT_PIN) != 0)
-    {
-        result = ERESTARTSYS;
-        goto set_gpio_direction_failed;
     }
 
     result = thermometer_setup_cdev(&thermometer_device);
 
     if (result)
     {
+        printk(KERN_WARNING "INIT: CDEV setup failed\n");
         goto setup_cdev_failed;
     }
 
     return 0;
 setup_cdev_failed:
-set_gpio_direction_failed:
     gpio_free(INPUT_PIN);
 request_input_pin_failed:
     gpio_free(OUTPUT_PIN);
