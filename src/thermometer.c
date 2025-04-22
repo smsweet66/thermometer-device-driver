@@ -17,8 +17,8 @@
 int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
 
-#define INPUT_PIN 18U  // GPIO 18
-#define OUTPUT_PIN 23U // GPIO 23
+#define INPUT_PIN 530U  // GPIO 18
+#define OUTPUT_PIN 535U // GPIO 23
 
 #ifdef __KERNEL__
 MODULE_AUTHOR("Sean Sweet");
