@@ -169,7 +169,7 @@ int thermometer_init_module(void)
 
     mutex_init(thermometer_device.device_mutex);
 
-    if (gpio_request_one(OUTPUT_PIN, GPIOF_INIT_LOW, "OUTPUT_PIN") != 0)
+    if (gpio_request_one(OUTPUT_PIN, GPIOF_OUT_INIT_LOW, "OUTPUT_PIN") != 0)
     {
         printk(KERN_WARNING "INIT: Output pin config failed\n");
         result = -ERESTARTSYS;
