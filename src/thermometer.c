@@ -169,16 +169,19 @@ int thermometer_init_module(void)
 
     mutex_init(thermometer_device.device_mutex);
 
-    if (gpio_request_one(OUTPUT_PIN, GPIOF_OUT_INIT_LOW, "OUTPUT_PIN") != 0)
+    result = gpio_request_one(OUTPUT_PIN, GPIOF_OUT_INIT_LOW, "OUTPUT_PIN");
+    if (result != 0)
     {
-        printk(KERN_WARNING "INIT: Output pin config failed\n");
+
+        printk(KERN_WARNING "INIT: Output pin config failed: %pe\n", ERR_PTR(result));
         result = -ERESTARTSYS;
         goto request_output_pin_failed;
     }
 
-    if (gpio_request_one(INPUT_PIN, GPIOF_DIR_IN, "INPUT_PIN") != 0)
+    result = gpio_request_one(INPUT_PIN, GPIOF_DIR_IN, "INPUT_PIN");
+    if (result != 0)
     {
-        printk(KERN_WARNING "INIT: Input pin config failed\n");
+        printk(KERN_WARNING "INIT: Input pin config failed: %pe\n", ERR_PTR(result));
         result = -ERESTARTSYS;
         goto request_input_pin_failed;
     }
