@@ -17,8 +17,8 @@
 int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
 
-#define INPUT_PIN 18U
-#define OUTPUT_PIN 23U
+#define INPUT_PIN 12U  // GPIO 18
+#define OUTPUT_PIN 16U // GPIO 23
 
 #ifdef __KERNEL__
 MODULE_AUTHOR("Sean Sweet");
@@ -40,7 +40,7 @@ int thermometer_open(struct inode *inode, struct file *filp)
     if (mutex_lock_interruptible(device->device_mutex) != 0)
     {
         printk(KERN_WARNING "OPEN: Failed to lock mutex\n");
-        return_val = ERESTARTSYS;
+        return_val = -ERESTARTSYS;
         goto device_mutex_lock_failed;
     }
 
@@ -155,7 +155,7 @@ int thermometer_init_module(void)
     if (thermometer_device.temperature == NULL)
     {
         printk(KERN_WARNING "INIT: Tempurature buffer malloc failed\n");
-        result = ENOMEM;
+        result = -ENOMEM;
         goto tempurature_malloc_failed;
     }
 
@@ -163,7 +163,7 @@ int thermometer_init_module(void)
     if (thermometer_device.device_mutex == NULL)
     {
         printk(KERN_WARNING "INIT: Device mutex malloc failed\n");
-        result = ENOMEM;
+        result = -ENOMEM;
         goto device_mutex_malloc_failed;
     }
 
@@ -172,14 +172,14 @@ int thermometer_init_module(void)
     if (gpio_request_one(OUTPUT_PIN, GPIOF_INIT_LOW, "OUTPUT_PIN") != 0)
     {
         printk(KERN_WARNING "INIT: Output pin config failed\n");
-        result = ERESTARTSYS;
+        result = -ERESTARTSYS;
         goto request_output_pin_failed;
     }
 
     if (gpio_request_one(INPUT_PIN, GPIOF_DIR_IN, "INPUT_PIN") != 0)
     {
         printk(KERN_WARNING "INIT: Input pin config failed\n");
-        result = ERESTARTSYS;
+        result = -ERESTARTSYS;
         goto request_input_pin_failed;
     }
 
