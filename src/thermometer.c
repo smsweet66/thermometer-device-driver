@@ -46,8 +46,8 @@ int thermometer_open(struct inode *inode, struct file *filp)
 {
     ThermometerDevice *device;
     int return_val = 0;
-    int resistance = 0;
-    int tempurature = 0;
+    // int resistance = 0;
+    // int tempurature = 0;
 
     printk(KERN_INFO "Opened\n");
 
@@ -71,10 +71,10 @@ int thermometer_open(struct inode *inode, struct file *filp)
         ;
 
     u64 end = ktime_get_mono_fast_ns();
-    resistance = time_to_resistance(end - start);
-    tempurature = resistance_to_tempurature(resistance);
+    // resistance = time_to_resistance(end - start);
+    // tempurature = resistance_to_tempurature(resistance);
 
-    snprintf(device->temperature, TEMPURATURE_LENGTH, "%d\n", tempurature);
+    snprintf(device->temperature, TEMPURATURE_LENGTH, "%llu\n", end - start);
 
     gpio_set_value(OUTPUT_PIN, 0);
 
@@ -116,7 +116,7 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
         goto device_mutex_lock_failed;
     }
 
-    str_len = strnlen(device->temperature, sizeof(device->temperature));
+    str_len = strnlen(device->temperature, TEMPURATURE_LENGTH);
     if (*f_pos >= str_len)
     {
         printk(KERN_WARNING "READ: Can't read past EOF\n");
