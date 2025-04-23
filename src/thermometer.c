@@ -13,7 +13,6 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/types.h>
-#include <linux/math64.h>
 
 int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
@@ -32,7 +31,7 @@ ThermometerDevice thermometer_device = {0};
 
 int time_to_resistance(u64 time_elapsed)
 {
-    return div64_long(time_elapsed, 10) + 600;
+    return time_elapsed + 600;
 }
 
 int resistance_to_tempurature(int resistance)
