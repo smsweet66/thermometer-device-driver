@@ -59,6 +59,8 @@ int thermometer_open(struct inode *inode, struct file *filp)
 
     snprintf(device->temperature, TEMPURATURE_LENGTH, "%llu\n", end - start);
 
+    gpio_set_value(OUTPUT_PIN, 0);
+
     mutex_unlock(device->device_mutex);
 
 device_mutex_lock_failed:
