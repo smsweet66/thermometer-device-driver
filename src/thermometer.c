@@ -27,12 +27,27 @@ MODULE_AUTHOR("Sean Sweet");
 MODULE_LICENSE("Dual BSD/GPL");
 #endif
 
-ThermometerDevice thermometer_device = {.temperature = "70\n"};
+ThermometerDevice thermometer_device = {0};
+
+int time_to_resistance(u64 time_elapsed)
+{
+    return (time_elapsed / 10) + 600;
+}
+
+int resistance_to_tempurature(int resistance)
+{
+    // the ratio between the current resistance, and the resistance at 25C, times 1000
+    int relative_resistance = resistance / 10;
+
+    return (relative_resistance * -10 + 22705) / 463;
+}
 
 int thermometer_open(struct inode *inode, struct file *filp)
 {
     ThermometerDevice *device;
     int return_val = 0;
+    int resistance = 0;
+    int tempurature = 0;
 
     printk(KERN_INFO "Opened\n");
 
@@ -56,8 +71,10 @@ int thermometer_open(struct inode *inode, struct file *filp)
         ;
 
     u64 end = ktime_get_mono_fast_ns();
+    resistance = time_to_resistance(end - start);
+    tempurature = resistance_to_tempurature(resistance);
 
-    snprintf(device->temperature, TEMPURATURE_LENGTH, "%llu\n", end - start);
+    snprintf(device->temperature, TEMPURATURE_LENGTH, "%d\n", tempurature);
 
     gpio_set_value(OUTPUT_PIN, 0);
 
