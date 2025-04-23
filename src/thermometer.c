@@ -18,8 +18,9 @@ int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
 
 #define GPIO_OFFSET 512U
-#define INPUT_PIN (GPIO_OFFSET + 12U)  // GPIO 18
-#define OUTPUT_PIN (GPIO_OFFSET + 16U) // GPIO 23
+#define INPUT_PIN (GPIO_OFFSET + 18U)  // GPIO 18
+#define OUTPUT_PIN (GPIO_OFFSET + 23U) // GPIO 23
+#define TEMPURATURE_LENGTH 30U
 
 #ifdef __KERNEL__
 MODULE_AUTHOR("Sean Sweet");
@@ -56,7 +57,7 @@ int thermometer_open(struct inode *inode, struct file *filp)
 
     u64 end = ktime_get_mono_fast_ns();
 
-    sprintf(device->temperature, "%llu", end - start);
+    snprintf(device->temperature, TEMPURATURE_LENGTH, "%llu\n", end - start);
 
     mutex_unlock(device->device_mutex);
 
@@ -152,7 +153,7 @@ int thermometer_init_module(void)
         goto alloc_chrdev_failed;
     }
 
-    thermometer_device.temperature = kmalloc_array(30, sizeof(char), GFP_KERNEL);
+    thermometer_device.temperature = kmalloc_array(TEMPURATURE_LENGTH, sizeof(char), GFP_KERNEL);
     if (thermometer_device.temperature == NULL)
     {
         printk(KERN_WARNING "INIT: Tempurature buffer malloc failed\n");
