@@ -15,14 +15,14 @@ typedef struct ThermometerDevice
 /// @return the resistance of the variable resistor
 int time_to_resistance(u64 time_elapsed);
 
-/// @brief Calculates the tempurature based on the resistance of the thermistor
+/// @brief Calculates the temperature based on the resistance of the thermistor
 /// @note this is very loosely based on the data sheet for the thermistor I am using.
-/// I took some shortcuts since this will only be used around room tempurature.
+/// I took some shortcuts since this will only be used around room temperature.
 /// @param[in] resistance the resistance of the thermistor
-/// @return the tempurature of the thermistor
-int resistance_to_tempurature(int resistance);
+/// @return the temperature of the thermistor
+int resistance_to_temperature(int resistance);
 
-/// @brief The open command for this device driver.  Stores the current tempurature in a string buffer.
+/// @brief The open command for this device driver.  Stores the current temperature in a string buffer.
 /// @param[in] inode the inode of the device
 /// @param[in] filp information about how the file is being accessed
 /// @return 0 on success, -E on error
@@ -34,7 +34,7 @@ int thermometer_open(struct inode *inode, struct file *filp);
 /// @return 0 on success, -E on error
 int thermometer_release(struct inode *inode, struct file *filp);
 
-/// @brief The read command for this device driver.  Returns the current tempurature as a string.
+/// @brief The read command for this device driver.  Returns the current temperature as a string.
 /// @param[in] filp information about how the file is being accessed
 /// @param[out] buf buffer for user data
 /// @param[in] count how many bytes to read

@@ -13,6 +13,7 @@
 #include <linux/module.h>
 #include <linux/printk.h>
 #include <linux/types.h>
+#include <linux/math64.h>
 
 int thermometer_major = 0; // use dynamic major
 int thermometer_minor = 0;
@@ -20,7 +21,7 @@ int thermometer_minor = 0;
 #define GPIO_OFFSET 512U
 #define INPUT_PIN (GPIO_OFFSET + 18U)  // GPIO 18
 #define OUTPUT_PIN (GPIO_OFFSET + 23U) // GPIO 23
-#define TEMPURATURE_LENGTH 30U
+#define TEMPERATURE_LENGTH 30U
 
 #ifdef __KERNEL__
 MODULE_AUTHOR("Sean Sweet");
@@ -31,23 +32,23 @@ ThermometerDevice thermometer_device = {0};
 
 int time_to_resistance(u64 time_elapsed)
 {
-    return time_elapsed + 600;
+    return div64_long(time_elapsed, 50000) + 8000;
 }
 
-int resistance_to_tempurature(int resistance)
+int resistance_to_temperature(int resistance)
 {
     // the ratio between the current resistance, and the resistance at 25C, times 1000
     int relative_resistance = resistance / 10;
 
-    return (relative_resistance * -10 + 22705) / 463;
+    return (relative_resistance * -18 + 55685) / 463;
 }
 
 int thermometer_open(struct inode *inode, struct file *filp)
 {
     ThermometerDevice *device;
     int return_val = 0;
-    // int resistance = 0;
-    // int tempurature = 0;
+    int resistance = 0;
+    int temperature = 0;
 
     printk(KERN_INFO "Opened\n");
 
@@ -71,10 +72,10 @@ int thermometer_open(struct inode *inode, struct file *filp)
         ;
 
     u64 end = ktime_get_mono_fast_ns();
-    // resistance = time_to_resistance(end - start);
-    // tempurature = resistance_to_tempurature(resistance);
+    resistance = time_to_resistance(end - start);
+    temperature = resistance_to_temperature(resistance);
 
-    snprintf(device->temperature, TEMPURATURE_LENGTH, "%llu\n", end - start);
+    snprintf(device->temperature, TEMPERATURE_LENGTH, "%d\n", temperature);
 
     gpio_set_value(OUTPUT_PIN, 0);
 
@@ -116,7 +117,7 @@ ssize_t thermometer_read(struct file *filp, char __user *buf, size_t count,
         goto device_mutex_lock_failed;
     }
 
-    str_len = strnlen(device->temperature, TEMPURATURE_LENGTH);
+    str_len = strnlen(device->temperature, TEMPERATURE_LENGTH);
     if (*f_pos >= str_len)
     {
         printk(KERN_WARNING "READ: Can't read past EOF\n");
@@ -172,12 +173,12 @@ int thermometer_init_module(void)
         goto alloc_chrdev_failed;
     }
 
-    thermometer_device.temperature = kmalloc_array(TEMPURATURE_LENGTH, sizeof(char), GFP_KERNEL);
+    thermometer_device.temperature = kmalloc_array(TEMPERATURE_LENGTH, sizeof(char), GFP_KERNEL);
     if (thermometer_device.temperature == NULL)
     {
-        printk(KERN_WARNING "INIT: Tempurature buffer malloc failed\n");
+        printk(KERN_WARNING "INIT: Temperature buffer malloc failed\n");
         result = -ENOMEM;
-        goto tempurature_malloc_failed;
+        goto temperature_malloc_failed;
     }
 
     thermometer_device.device_mutex = kmalloc(sizeof(struct mutex), GFP_KERNEL);
@@ -225,7 +226,7 @@ request_output_pin_failed:
     kfree(thermometer_device.device_mutex);
 device_mutex_malloc_failed:
     kfree(thermometer_device.temperature);
-tempurature_malloc_failed:
+temperature_malloc_failed:
 alloc_chrdev_failed:
 
     return result;
